@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../database');
 const router = express.Router();
 
-const JWT_SECRET = 'LA_TUA_CHIAVE_SEGRETA_MOLTO_SEGRETA'; // CAMBIALA!
+const JWT_SECRET = 'a738e0894387534496a4242f35dc0ce0'; // CAMBIALA!
 
 // Middleware per verificare il token
 const authenticateToken = (req, res, next) => {
