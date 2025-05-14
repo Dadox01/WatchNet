@@ -1,0 +1,25 @@
+{
+  "name": "watchnet-app",
+  "version": "1.0.0",
+  "description": "Applicazione per tracciare film e serie TV viste.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "jsonwebtoken": "^9.0.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "Il Tuo Nome o Nickname",
+  "license": "ISC"
+}
