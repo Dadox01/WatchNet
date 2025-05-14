@@ -123,10 +123,12 @@
         <div class="flex items-center space-x-8">
             <a href="#" class="text-3xl font-bold text-red-600">WatchNet</a>
             <ul id="nav-links-container" class="hidden md:flex items-center space-x-4 text-sm">
-                </ul>
+                <!-- I link verranno popolati da JS -->
+            </ul>
         </div>
         <div id="user-profile-icon-container" class="hidden items-center space-x-3">
-            </div>
+            <!-- L'icona profilo e logout verranno popolate da JS -->
+        </div>
     </nav>
 
     <div id="alert-message"></div>
@@ -157,16 +159,16 @@
         </section>
     </main>
 
-    <div id="auth-overlay" class="modal-overlay hidden">
+    <div id="auth-overlay" class="modal-overlay hidden"> <!-- Inizia nascosto -->
         <div class="modal-content">
-            <div id="login-form-container">
+            <div id="login-form-container"> <!-- Questo viene mostrato/nascosto da showLoginForm/showRegisterForm -->
                 <h2 class="text-2xl font-bold mb-6 text-center">Accedi a WatchNet</h2>
                 <input type="text" id="login-username" class="form-input" placeholder="Nome utente">
                 <input type="password" id="login-password" class="form-input" placeholder="Password">
                 <button id="login-button" class="action-button w-full mb-4">Accedi</button>
                 <p class="text-center text-sm">Non hai un account? <button id="show-register-button" class="text-red-500 hover:underline">Registrati</button></p>
             </div>
-            <div id="register-form-container" class="hidden">
+            <div id="register-form-container" class="hidden"> <!-- Inizia nascosto -->
                 <h2 class="text-2xl font-bold mb-6 text-center">Crea un Account</h2>
                 <input type="text" id="register-username" class="form-input" placeholder="Scegli un nome utente">
                 <input type="password" id="register-password" class="form-input" placeholder="Scegli una password">
@@ -181,7 +183,7 @@
         <div class="modal-content">
             <h2 class="text-2xl font-bold mb-6 text-center">Il Mio Profilo</h2>
             <p class="mb-2 text-lg">Nome Utente: <span id="profile-username" class="font-semibold"></span></p>
-            
+
             <h3 class="text-xl font-semibold mt-6 mb-3">Cambia Password</h3>
             <input type="password" id="profile-current-password" class="form-input" placeholder="Password attuale">
             <input type="password" id="profile-new-password" class="form-input" placeholder="Nuova password">
@@ -190,7 +192,7 @@
 
             <h3 class="text-xl font-semibold mt-6 mb-3 text-red-500">Zona Pericolo</h3>
             <button id="delete-profile-button" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full mb-4">Elimina Profilo</button>
-            
+
             <button id="close-profile-button" class="secondary-button w-full">Chiudi</button>
         </div>
     </div>
@@ -198,47 +200,49 @@
 
     <script>
     // --- CONFIGURAZIONE API ---
-    const TMDB_API_KEY = 'ebcee35ad2cf06790790fc514c32f89a';
+    const TMDB_API_KEY = 'ebcee35ad2cf06790790fc514c32f89a'; // SOSTITUISCI SE USI LA TUA CHIAVE
     const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
     const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
-    // --- ELEMENTI DEL DOM ---
+    // --- ELEMENTI DEL DOM (Ottenuti quando servono o all'inizio) ---
+    // Navbar
     const mainNav = document.getElementById('main-nav');
     const navLinksContainer = document.getElementById('nav-links-container');
     const userProfileIconContainer = document.getElementById('user-profile-icon-container');
-    
+
+    // Contenuto principale e autenticazione
     const appContent = document.getElementById('app-content');
-    const authOverlay = document.getElementById('auth-overlay');
-    const loginFormContainer = document.getElementById('login-form-container');
-    const registerFormContainer = document.getElementById('register-form-container');
+    const authOverlayEl = document.getElementById('auth-overlay'); // Rinomina per evitare conflitti di scope
+    const loginFormContainerEl = document.getElementById('login-form-container');
+    const registerFormContainerEl = document.getElementById('register-form-container');
     const profileOverlay = document.getElementById('profile-overlay');
 
+    // Ricerca
     const searchTitle = document.getElementById('search-title');
     const mediaSearchInput = document.getElementById('media-search-input');
     const searchButton = document.getElementById('search-button');
     const searchSuggestionsContainer = document.getElementById('search-suggestions');
     const searchResultsContainer = document.getElementById('search-results');
 
+    // Liste viste
     const moviesWatchedSection = document.getElementById('movies-watched-section');
     const moviesWatchedListContainer = document.getElementById('movies-watched-list');
     const tvshowsWatchedSection = document.getElementById('tvshows-watched-section');
     const tvshowsWatchedListContainer = document.getElementById('tvshows-watched-list');
-    
-    const alertMessageContainer = document.getElementById('alert-message');
 
-    // Auth Form Elements
+    // Messaggi e input form
+    const alertMessageContainer = document.getElementById('alert-message');
     const loginUsernameInput = document.getElementById('login-username');
     const loginPasswordInput = document.getElementById('login-password');
     const loginButton = document.getElementById('login-button');
     const showRegisterButton = document.getElementById('show-register-button');
-
     const registerUsernameInput = document.getElementById('register-username');
     const registerPasswordInput = document.getElementById('register-password');
     const registerConfirmPasswordInput = document.getElementById('register-confirm-password');
     const registerButton = document.getElementById('register-button');
     const showLoginButton = document.getElementById('show-login-button');
 
-    // Profile Modal Elements
+    // Profilo
     const profileUsernameSpan = document.getElementById('profile-username');
     const profileCurrentPasswordInput = document.getElementById('profile-current-password');
     const profileNewPasswordInput = document.getElementById('profile-new-password');
@@ -247,313 +251,552 @@
     const deleteProfileButton = document.getElementById('delete-profile-button');
     const closeProfileButton = document.getElementById('close-profile-button');
 
+    // --- STATO DELL'APPLICAZIONE ---
+    let currentUser = null;
+    let authToken = localStorage.getItem('watchnet_authToken');
+    let currentView = 'movies';
+    let searchDebounceTimer;
 
-// --- STATO DELL'APPLICAZIONE ---
-let currentUser = null; // Oggetto utente: { id: ..., username: "..." } (dal server)
-let authToken = localStorage.getItem('watchnet_authToken'); // Conserva il token
-// ... (il resto dello stato può rimanere)
-
-// --- FUNZIONI DI UTILITY ---
-// ... showAlert rimane uguale ...
-
-// Helper per chiamate API
-async function apiCall(endpoint, method = 'GET', body = null, requireAuth = true) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (requireAuth && authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
+    // --- FUNZIONI DI UTILITY ---
+    function showAlert(message, duration = 3000, isError = false) {
+        if (alertMessageContainer) {
+            alertMessageContainer.textContent = message;
+            alertMessageContainer.style.backgroundColor = isError ? '#b91c1c' : '#e50914';
+            alertMessageContainer.style.display = 'block';
+            setTimeout(() => {
+                alertMessageContainer.style.display = 'none';
+            }, duration);
+        } else {
+            console.warn("showAlert: alertMessageContainer non trovato.", message);
+        }
     }
 
-    const config = {
-        method,
-        headers
+    window.onscroll = function() {
+        if (mainNav) {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                mainNav.classList.add('bg-scrolled');
+            } else {
+                mainNav.classList.remove('bg-scrolled');
+            }
+        }
     };
-    if (body) {
-        config.body = JSON.stringify(body);
-    }
 
-    try {
-        const response = await fetch(`/api${endpoint}`, config); // Nota /api prefix
-        if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/register') { // Token scaduto o non valido
-            handleLogout(); // Esegui il logout
-            showAlert("Sessione scaduta. Effettua nuovamente il login.", 4000, true);
-            throw new Error("Unauthorized");
+    async function apiCall(endpoint, method = 'GET', body = null, requireAuth = true) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (requireAuth && authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
         }
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.message || `Errore API: ${response.statusText}`);
+
+        const config = { method, headers };
+        if (body) {
+            config.body = JSON.stringify(body);
         }
-        return data;
-    } catch (error) {
-        console.error(`Errore API (${method} ${endpoint}):`, error);
-        showAlert(error.message || "Errore di comunicazione con il server.", 4000, true);
-        throw error; // Rilancia l'errore per gestirlo nel chiamante se necessario
-    }
-}
 
-
-// --- LOGICA DI AUTENTICAZIONE (con API) ---
-// RIMUOVERE getUsersFromStorage, saveUsersToStorage, getCurrentUserFromStorage, setCurrentUserInStorage, hashPassword
-
-async function handleRegistration() {
-    const username = registerUsernameInput.value.trim();
-    const password = registerPasswordInput.value;
-    const confirmPassword = registerConfirmPasswordInput.value;
-
-    if (!username || !password || !confirmPassword) {
-        showAlert("Tutti i campi sono obbligatori.", 3000, true); return;
-    }
-    if (password !== confirmPassword) {
-        showAlert("Le password non coincidono.", 3000, true); return;
-    }
-    if (password.length < 6) {
-        showAlert("La password deve essere di almeno 6 caratteri.", 3000, true); return;
-    }
-
-    try {
-        await apiCall('/auth/register', 'POST', { username, password }, false);
-        showAlert("Registrazione completata! Ora puoi accedere.");
-        showLoginForm();
-        registerUsernameInput.value = '';
-        registerPasswordInput.value = '';
-        registerConfirmPasswordInput.value = '';
-    } catch (error) {
-        // showAlert è già chiamato da apiCall
-    }
-}
-
-async function handleLogin() {
-    const username = loginUsernameInput.value.trim();
-    const password = loginPasswordInput.value;
-
-    if (!username || !password) {
-        showAlert("Nome utente e password sono obbligatori.", 3000, true); return;
-    }
-
-    try {
-        const data = await apiCall('/auth/login', 'POST', { username, password }, false);
-        authToken = data.accessToken;
-        localStorage.setItem('watchnet_authToken', authToken); // Salva il token
-        // currentUser sarà impostato da fetchCurrentUser o initializeAppUI
-        await fetchCurrentUser(); // Carica i dati dell'utente
-        initializeAppUI();
-        showAlert(`Benvenuto, ${data.username}!`);
-    } catch (error) {
-        // showAlert è già chiamato da apiCall
-    } finally {
-        loginPasswordInput.value = ''; // Pulisci sempre la password
-    }
-}
-
-async function fetchCurrentUser() {
-    if (!authToken) {
-        currentUser = null;
-        return;
-    }
-    try {
-        currentUser = await apiCall('/auth/me', 'GET');
-    } catch (error) {
-        currentUser = null;
-        localStorage.removeItem('watchnet_authToken');
-        authToken = null;
-    }
-}
-
-function handleLogout() {
-    currentUser = null;
-    authToken = null;
-    localStorage.removeItem('watchnet_authToken');
-    initializeAppUI();
-    showAlert("Sei stato disconnesso.");
-}
-
-async function handleChangePassword() {
-    const currentPassword = profileCurrentPasswordInput.value;
-    const newPassword = profileNewPasswordInput.value;
-    const confirmNewPassword = profileConfirmNewPasswordInput.value;
-
-    // ... validazioni come prima ...
-    if (!currentPassword || !newPassword || !confirmNewPassword) { /*...*/ return; }
-    if (newPassword !== confirmNewPassword) { /*...*/ return; }
-    if (newPassword.length < 6) { /*...*/ return; }
-    // NON PUOI PIU' verificare currentPassword lato client se non la salvi (non farlo!)
-    // Il server farà questa verifica.
-
-    try {
-        await apiCall('/auth/me/password', 'PUT', { currentPassword, newPassword });
-        showAlert("Password modificata con successo!");
-        profileCurrentPasswordInput.value = '';
-        profileNewPasswordInput.value = '';
-        profileConfirmNewPasswordInput.value = '';
-        profileOverlay.classList.add('hidden');
-    } catch (error) {
-        // showAlert è già chiamato da apiCall
-    }
-}
-
-async function handleDeleteProfile() {
-    if (confirm(`Sei sicuro di voler eliminare il tuo profilo, ${currentUser.username}? Questa azione è irreversibile e tutti i tuoi dati verranno persi.`)) {
         try {
-            await apiCall('/auth/me', 'DELETE');
-            handleLogout(); // Esegue il logout e resetta l'UI
-            showAlert("Profilo eliminato con successo.");
-            profileOverlay.classList.add('hidden');
+            const response = await fetch(`/api${endpoint}`, config); // Assumendo che il backend sia sulla stessa origine, path /api
+            const responseData = await response.json(); // Leggi sempre il corpo JSON
+
+            if (!response.ok) {
+                // Se 401 e non è login/register, potrebbe essere token scaduto
+                if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/register' && endpoint !== '/auth/me') {
+                     console.warn("API Call: Ricevuto 401, possibile token scaduto. Eseguo logout.");
+                     handleLogout(); // Chiamata a handleLogout per pulire lo stato
+                     // Non rilanciare l'errore qui per non bloccare UI init se è /auth/me
+                }
+                throw new Error(responseData.message || `Errore API: ${response.status} ${response.statusText}`);
+            }
+            return responseData;
         } catch (error) {
-            // showAlert è già chiamato da apiCall
+            console.error(`Errore API (${method} ${endpoint}):`, error.message);
+            // Mostra l'errore solo se non è un tentativo di /auth/me con token non valido (gestito da fetchCurrentUser)
+            if (!(endpoint === '/auth/me' && error.message.toLowerCase().includes("unauthorized")) &&
+                !(endpoint === '/auth/me' && error.message.toLowerCase().includes("token"))) {
+                 showAlert(error.message || "Errore di comunicazione con il server.", 4000, true);
+            }
+            throw error;
         }
     }
-}
 
-// --- GESTIONE UI PRINCIPALE ---
-async function initializeAppUI() { // Ora è async
-    await fetchCurrentUser(); // Prova a caricare l'utente se c'è un token
-
-    if (currentUser && authToken) { // Verifica anche authToken
-        authOverlay.classList.add('hidden');
-        appContent.classList.remove('hidden');
-        userProfileIconContainer.classList.remove('hidden');
-        userProfileIconContainer.classList.add('flex');
-        setupNavbarLinks();
-        updateUserProfileIcon();
-        setView(currentView);
-    } else {
-        appContent.classList.add('hidden');
-        userProfileIconContainer.classList.add('hidden');
-        userProfileIconContainer.classList.remove('flex');
-        navLinksContainer.innerHTML = '';
-        showLoginForm();
-    }
-}
-
-// ... updateUserProfileIcon, showProfileModal, setView rimangono simili ma potrebbero aver bisogno di renderWatchedMedia async
-
-// --- LOGICA DI RICERCA E GESTIONE MEDIA (con API) ---
-// RIMUOVERE saveMediaList
-
-async function getMediaList(type) { // type: 'movies' or 'tvshows'
-    if (!currentUser) return [];
-    try {
-        const mediaTypeParam = type === 'movies' ? 'movies' : 'tvshows'; // l'endpoint usa 'movies'/'tvshows'
-        return await apiCall(`/media/${mediaTypeParam}`, 'GET');
-    } catch (error) {
-        return []; // Restituisce array vuoto in caso di errore
-    }
-}
-
-async function renderWatchedMedia(type) { // Ora è async
-    const list = await getMediaList(type); // Chiama la nuova funzione async
-    const container = type === 'movies' ? moviesWatchedListContainer : tvshowsWatchedListContainer;
-    container.innerHTML = '';
-
-    // ... il resto della logica di rendering rimane simile, ma i dati (list) ora sono dal server ...
-
-    const noMediaMessageElement = container.querySelector('.no-media-message') || document.createElement('p');
-    noMediaMessageElement.classList.add('no-media-message', 'text-gray-500', 'italic', 'text-lg');
-    noMediaMessageElement.textContent = type === 'movies' ? 'Nessun film aggiunto.' : 'Nessuna serie TV aggiunta.';
-
-    if (list.length === 0) {
-        container.appendChild(noMediaMessageElement);
-        return;
+    // --- FUNZIONI DI AUTENTICAZIONE E UI ---
+    async function fetchCurrentUser() {
+        console.log("fetchCurrentUser - Inizio. authToken:", authToken);
+        if (!authToken) {
+            currentUser = null;
+            console.log("fetchCurrentUser - Nessun authToken, currentUser impostato a null.");
+            return;
+        }
+        try {
+            currentUser = await apiCall('/auth/me', 'GET'); // apiCall gestirà il caso di token non valido
+            console.log("fetchCurrentUser - currentUser dall'API:", currentUser);
+        } catch (error) {
+            console.warn("fetchCurrentUser - Errore nel caricare utente (probabile token non valido/scaduto):", error.message);
+            currentUser = null;
+            localStorage.removeItem('watchnet_authToken'); // Rimuovi token non valido
+            authToken = null;
+        }
     }
 
-    list.forEach(media => {
-        // ... come prima, ma assicurati che i campi media.poster_path, media.title etc. siano corretti
-        // in base a cosa restituisce l'API /media/:type.
-        // Ho cercato di mantenere la coerenza nella risposta dell'API.
-        const mediaElement = document.createElement('div');
-        mediaElement.classList.add('flex-shrink-0', 'relative', 'group', 'rounded-md', 'overflow-hidden');
+    function showLoginForm() {
+        console.log("showLoginForm chiamata");
+        if (loginFormContainerEl && registerFormContainerEl && authOverlayEl) {
+            loginFormContainerEl.classList.remove('hidden');
+            registerFormContainerEl.classList.add('hidden');
+            authOverlayEl.classList.remove('hidden');
+            console.log("showLoginForm: Overlay e form di login mostrati.");
+        } else {
+            console.error("showLoginForm: Elementi del form (login, register, overlay) non trovati.");
+        }
+    }
 
-        // Il backend restituisce già tmdb_id come 'id' e i campi title/name, poster_path, release_date/first_air_date
-        const posterPath = media.poster_path;
-        const title = media.title || media.name;
-        const releaseDate = media.release_date || media.first_air_date;
+    function showRegisterForm() {
+        console.log("showRegisterForm chiamata");
+        if (loginFormContainerEl && registerFormContainerEl && authOverlayEl) {
+            loginFormContainerEl.classList.add('hidden');
+            registerFormContainerEl.classList.remove('hidden');
+            authOverlayEl.classList.remove('hidden');
+        } else {
+            console.error("showRegisterForm: Elementi del form non trovati.");
+        }
+    }
+    
+    function showProfileModal() {
+        if (currentUser && profileUsernameSpan && profileOverlay) {
+            profileUsernameSpan.textContent = currentUser.username;
+            profileOverlay.classList.remove('hidden');
+        } else {
+            console.error("showProfileModal: currentUser o elementi del profilo non trovati.");
+        }
+    }
 
-        const posterUrl = posterPath ? `${TMDB_IMAGE_BASE_URL}${posterPath}` : `https://placehold.co/160x240/1f1f1f/e5e5e5?text=No+Poster`;
-        
-        const img = document.createElement('img');
-        img.src = posterUrl;
-        img.alt = `Locandina di ${title}`;
-        img.classList.add('media-poster');
-        img.title = `${title} (${releaseDate ? new Date(releaseDate).getFullYear() : 'N/A'})`;
-        img.onerror = function() { this.src = `https://placehold.co/160x240/1f1f1f/e5e5e5?text=Error`; };
+    async function initializeAppUI() {
+        console.log("initializeAppUI - Inizio");
+        await fetchCurrentUser();
+        console.log("initializeAppUI - Dopo fetchCurrentUser. currentUser:", currentUser, "authToken:", authToken);
 
-        const overlay = document.createElement('div');
-        overlay.classList.add('absolute', 'inset-0', 'bg-black', 'bg-opacity-0', 'group-hover:bg-opacity-60', 'transition-all', 'duration-300', 'flex', 'flex-col', 'items-center', 'justify-end', 'p-2', 'opacity-0', 'group-hover:opacity-100');
+        if (currentUser && authToken) { // Se l'utente è valido e c'è un token
+            if (authOverlayEl) authOverlayEl.classList.add('hidden');
+            if (appContent) appContent.classList.remove('hidden');
+            if (userProfileIconContainer) {
+                userProfileIconContainer.classList.remove('hidden');
+                userProfileIconContainer.classList.add('flex');
+            }
+            setupNavbarLinks();
+            updateUserProfileIcon();
+            setView(currentView); // Assicurati che currentView sia definito e setView gestisca il rendering
+            console.log("initializeAppUI: Utente loggato, UI dell'app mostrata.");
+        } else { // Utente non loggato o token non valido/scaduto
+            if (appContent) appContent.classList.add('hidden');
+            if (userProfileIconContainer) {
+                userProfileIconContainer.classList.add('hidden');
+                userProfileIconContainer.classList.remove('flex');
+            }
+            if (navLinksContainer) navLinksContainer.innerHTML = ''; // Rimuovi link nav
+            
+            console.log("initializeAppUI: Utente non loggato, chiamo showLoginForm.");
+            showLoginForm(); // Mostra il modulo di login
+        }
+    }
+
+    function setupNavbarLinks() {
+        if (!navLinksContainer) return;
+        navLinksContainer.innerHTML = `
+            <li><a href="#" data-view="movies" class="nav-link ${currentView === 'movies' ? 'active' : ''}">Film</a></li>
+            <li><a href="#" data-view="tvshows" class="nav-link ${currentView === 'tvshows' ? 'active' : ''}">Serie TV</a></li>
+        `;
+        navLinksContainer.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                setView(e.target.dataset.view);
+            });
+        });
+    }
+
+    function updateUserProfileIcon() {
+        if (!userProfileIconContainer || !currentUser) return;
+        userProfileIconContainer.innerHTML = ''; 
+        const avatar = document.createElement('div');
+        avatar.classList.add('user-avatar');
+        avatar.textContent = currentUser.username.charAt(0).toUpperCase();
+        avatar.title = `Profilo di ${currentUser.username}`;
+        avatar.onclick = showProfileModal;
         
-        const mediaTitleOverlay = document.createElement('p');
-        mediaTitleOverlay.textContent = title;
-        mediaTitleOverlay.classList.add('text-white', 'text-xs', 'font-semibold', 'text-center', 'mb-1', 'truncate');
+        const logoutButtonElem = document.createElement('button'); // Rinomina variabile
+        logoutButtonElem.textContent = 'Logout';
+        logoutButtonElem.classList.add('text-sm', 'text-gray-300', 'hover:text-white', 'hover:underline');
+        logoutButtonElem.onclick = handleLogout;
+
+        userProfileIconContainer.appendChild(avatar);
+        userProfileIconContainer.appendChild(logoutButtonElem);
+    }
+
+    async function setView(viewType) { // setView ora può essere async se renderWatchedMedia è async
+        currentView = viewType;
+        if (navLinksContainer) {
+            navLinksContainer.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.toggle('active', link.dataset.view === currentView);
+            });
+        }
+
+        if (currentView === 'movies') {
+            if (searchTitle) searchTitle.textContent = 'Cerca Film';
+            if (mediaSearchInput) mediaSearchInput.placeholder = 'Scrivi il titolo del film...';
+            if (moviesWatchedSection) moviesWatchedSection.classList.remove('hidden');
+            if (tvshowsWatchedSection) tvshowsWatchedSection.classList.add('hidden');
+            await renderWatchedMedia('movies');
+        } else { // tvshows
+            if (searchTitle) searchTitle.textContent = 'Cerca Serie TV';
+            if (mediaSearchInput) mediaSearchInput.placeholder = 'Scrivi il titolo della serie TV...';
+            if (moviesWatchedSection) moviesWatchedSection.classList.add('hidden');
+            if (tvshowsWatchedSection) tvshowsWatchedSection.classList.remove('hidden');
+            await renderWatchedMedia('tvshows');
+        }
+        if (searchResultsContainer) searchResultsContainer.innerHTML = '';
+        if (searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+        if (mediaSearchInput) mediaSearchInput.value = '';
+    }
+
+    // --- LOGICA DI AUTENTICAZIONE SPECIFICA (chiamate API) ---
+    async function handleRegistration() {
+        if (!registerUsernameInput || !registerPasswordInput || !registerConfirmPasswordInput) return;
+        const username = registerUsernameInput.value.trim();
+        const password = registerPasswordInput.value;
+        const confirmPassword = registerConfirmPasswordInput.value;
+
+        if (!username || !password || !confirmPassword) { showAlert("Tutti i campi sono obbligatori.", 3000, true); return; }
+        if (password !== confirmPassword) { showAlert("Le password non coincidono.", 3000, true); return; }
+        if (password.length < 6) { showAlert("La password deve essere di almeno 6 caratteri.", 3000, true); return; }
+
+        try {
+            await apiCall('/auth/register', 'POST', { username, password }, false);
+            showAlert("Registrazione completata! Ora puoi accedere.");
+            showLoginForm();
+            registerUsernameInput.value = '';
+            registerPasswordInput.value = '';
+            registerConfirmPasswordInput.value = '';
+        } catch (error) { /* showAlert già gestito da apiCall */ }
+    }
+
+    async function handleLogin() {
+        if (!loginUsernameInput || !loginPasswordInput) return;
+        const username = loginUsernameInput.value.trim();
+        const password = loginPasswordInput.value;
+
+        if (!username || !password) { showAlert("Nome utente e password sono obbligatori.", 3000, true); return; }
+
+        try {
+            const data = await apiCall('/auth/login', 'POST', { username, password }, false);
+            authToken = data.accessToken;
+            localStorage.setItem('watchnet_authToken', authToken);
+            await initializeAppUI(); // Ricarica l'UI dopo il login
+            showAlert(`Benvenuto, ${data.username}!`);
+        } catch (error) { /* showAlert già gestito da apiCall */ }
+        finally {
+            if (loginPasswordInput) loginPasswordInput.value = '';
+        }
+    }
+
+    function handleLogout() {
+        console.log("handleLogout chiamato");
+        currentUser = null;
+        authToken = null;
+        localStorage.removeItem('watchnet_authToken');
+        initializeAppUI(); // Ricarica l'UI, che dovrebbe mostrare il login
+        showAlert("Sei stato disconnesso.");
+    }
+
+    async function handleChangePassword() {
+        // ... implementazione ... (come prima, ma con apiCall)
+        if (!profileCurrentPasswordInput || !profileNewPasswordInput || !profileConfirmNewPasswordInput) return;
+        const currentPassword = profileCurrentPasswordInput.value;
+        const newPassword = profileNewPasswordInput.value;
+        const confirmNewPassword = profileConfirmNewPasswordInput.value;
+
+        if (!currentPassword || !newPassword || !confirmNewPassword) { showAlert("Tutti i campi password sono obbligatori.", 3000, true); return;}
+        if (newPassword !== confirmNewPassword) { showAlert("Le nuove password non coincidono.", 3000, true); return; }
+        if (newPassword.length < 6) { showAlert("La nuova password deve essere di almeno 6 caratteri.", 3000, true); return; }
+
+        try {
+            await apiCall('/auth/me/password', 'PUT', { currentPassword, newPassword });
+            showAlert("Password modificata con successo!");
+            profileCurrentPasswordInput.value = '';
+            profileNewPasswordInput.value = '';
+            profileConfirmNewPasswordInput.value = '';
+            if (profileOverlay) profileOverlay.classList.add('hidden');
+        } catch (error) { /* apiCall gestisce showAlert */ }
+    }
+
+    async function handleDeleteProfile() {
+        if (currentUser && confirm(`Sei sicuro di voler eliminare il tuo profilo, ${currentUser.username}? Questa azione è irreversibile.`)) {
+            try {
+                await apiCall('/auth/me', 'DELETE');
+                // handleLogout si occupa di resettare l'UI e mostrare il login
+                if (profileOverlay) profileOverlay.classList.add('hidden');
+                handleLogout(); // Chiamata qui per assicurare pulizia e re-init UI
+                showAlert("Profilo eliminato con successo.");
+            } catch (error) { /* apiCall gestisce showAlert */ }
+        }
+    }
+
+
+    // --- LOGICA DI RICERCA E GESTIONE MEDIA ---
+    async function getMediaList(type) { // type: 'movies' or 'tvshows'
+        if (!currentUser) return [];
+        try {
+            return await apiCall(`/media/${type}`, 'GET'); // L'endpoint usa 'movies' o 'tvshows'
+        } catch (error) {
+            return [];
+        }
+    }
+
+    async function renderWatchedMedia(type) {
+        const list = await getMediaList(type);
+        const container = type === 'movies' ? moviesWatchedListContainer : tvshowsWatchedListContainer;
+        if (!container) {
+            console.error(`Container per ${type} non trovato.`);
+            return;
+        }
+        container.innerHTML = '';
+
+        const noMediaMessageElement = document.createElement('p');
+        noMediaMessageElement.classList.add('no-media-message', 'text-gray-500', 'italic', 'text-lg');
+        noMediaMessageElement.textContent = type === 'movies' ? 'Nessun film aggiunto.' : 'Nessuna serie TV aggiunta.';
+
+        if (list.length === 0) {
+            container.appendChild(noMediaMessageElement);
+            return;
+        }
+
+        list.forEach(media => {
+            const mediaElement = document.createElement('div');
+            mediaElement.classList.add('flex-shrink-0', 'relative', 'group', 'rounded-md', 'overflow-hidden');
+
+            const posterPath = media.poster_path;
+            const title = media.title || media.name;
+            const releaseDate = media.release_date || media.first_air_date;
+            const posterUrl = posterPath ? `${TMDB_IMAGE_BASE_URL}${posterPath}` : `https://placehold.co/160x240/1f1f1f/e5e5e5?text=No+Poster`;
+
+            const img = document.createElement('img');
+            img.src = posterUrl;
+            img.alt = `Locandina di ${title}`;
+            img.classList.add('media-poster');
+            img.title = `${title} (${releaseDate ? new Date(releaseDate).getFullYear() : 'N/A'})`;
+            img.onerror = function() { this.src = `https://placehold.co/160x240/1f1f1f/e5e5e5?text=Error`; };
+
+            const overlay = document.createElement('div');
+            overlay.classList.add('absolute', 'inset-0', 'bg-black', 'bg-opacity-0', 'group-hover:bg-opacity-60', 'transition-all', 'duration-300', 'flex', 'flex-col', 'items-center', 'justify-end', 'p-2', 'opacity-0', 'group-hover:opacity-100');
+            
+            const mediaTitleOverlay = document.createElement('p');
+            mediaTitleOverlay.textContent = title;
+            mediaTitleOverlay.classList.add('text-white', 'text-xs', 'font-semibold', 'text-center', 'mb-1', 'truncate');
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Rimuovi';
+            removeBtn.classList.add('remove-button');
+            removeBtn.onclick = (event) => {
+                event.stopPropagation(); 
+                removeMediaFromWatched(media.id, type); // media.id è tmdb_id dal backend
+            };
+            
+            overlay.appendChild(mediaTitleOverlay);
+            overlay.appendChild(removeBtn);
+            mediaElement.appendChild(img);
+            mediaElement.appendChild(overlay);
+            container.appendChild(mediaElement);
+        });
+    }
+
+    async function removeMediaFromWatched(mediaTmdbId, type) {
+        try {
+            await apiCall(`/media/${mediaTmdbId}/${type}`, 'DELETE'); // type è 'movies' o 'tvshows'
+            await renderWatchedMedia(type);
+            showAlert(`${type === 'movies' ? 'Film' : 'Serie TV'} rimoss${type === 'movies' ? 'o' : 'a'}!`, 2000);
+        } catch (error) { /* apiCall gestisce showAlert */ }
+    }
+
+    async function searchMedia(query, isSuggestions = false) {
+        // ... (implementazione come prima, interagisce con TMDB API) ...
+        if (TMDB_API_KEY === 'LA_TUA_CHIAVE_API_TMDB' || !TMDB_API_KEY) { 
+            showAlert('Configura la tua chiave API TMDB per usare la ricerca.', 5000, true);
+            return;
+        }
+        if (!query.trim()) {
+            if(searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+            if(searchResultsContainer) searchResultsContainer.innerHTML = '';
+            return;
+        }
+
+        const searchTypeApi = currentView === 'movies' ? 'movie' : 'tv'; // 'movie' o 'tv' per API TMDB
+        const url = `${TMDB_BASE_URL}/search/${searchTypeApi}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=it-IT&include_adult=false`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Errore API TMDB: ${response.statusText}`);
+            const data = await response.json();
+            
+            if (isSuggestions) displaySearchSuggestions(data.results, searchTypeApi);
+            else displaySearchResults(data.results, searchTypeApi);
+        } catch (error) {
+            console.error(`Errore ricerca TMDB ${searchTypeApi}:`, error);
+            showAlert(`Errore ricerca TMDB: ${error.message}`, 4000, true);
+            if (!isSuggestions && searchResultsContainer) searchResultsContainer.innerHTML = `<p class="text-red-500 col-span-full text-center">Impossibile caricare. ${error.message}</p>`;
+            else if (searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+        }
+    }
+
+    function displaySearchSuggestions(results, searchTypeApi) {
+        // ... (implementazione come prima) ...
+        if (!searchSuggestionsContainer) return;
+        searchSuggestionsContainer.innerHTML = ''; 
+        if (results.length === 0) {
+            searchSuggestionsContainer.classList.add('hidden');
+            return;
+        }
         
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'Rimuovi';
-        removeBtn.classList.add('remove-button');
-        removeBtn.onclick = (event) => {
-            event.stopPropagation(); 
-            removeMediaFromWatched(media.id, type); // media.id qui è tmdb_id
+        searchSuggestionsContainer.classList.remove('hidden');
+        const suggestionsToShow = results.slice(0, 6); 
+
+        suggestionsToShow.forEach(item => {
+            const title = item.title || item.name;
+            if (!title) return; 
+
+            const suggestionItem = document.createElement('div');
+            // ... (come prima) ...
+            suggestionItem.classList.add('p-3', 'hover:bg-gray-700', 'cursor-pointer', 'text-sm', 'border-b', 'border-gray-700', 'last:border-b-0');
+            const posterUrl = item.poster_path ? `${TMDB_IMAGE_BASE_URL.replace('w500', 'w92')}${item.poster_path}` : 'https://placehold.co/30x45/1f1f1f/e5e5e5?text=N/A';
+            const year = item.release_date || item.first_air_date;
+            const displayYear = year ? `(${new Date(year).getFullYear()})` : '';
+            suggestionItem.innerHTML = `
+                <div class="flex items-center">
+                    <img src="${posterUrl}" alt="" class="w-8 h-12 object-cover mr-3 rounded-sm flex-shrink-0" onerror="this.src='https://placehold.co/30x45/1f1f1f/e5e5e5?text=N/A'; this.onerror=null;">
+                    <span class="truncate">${title} ${displayYear}</span>
+                </div>
+            `;
+            suggestionItem.onclick = () => {
+                if(mediaSearchInput) mediaSearchInput.value = title; 
+                searchSuggestionsContainer.classList.add('hidden');
+                searchMedia(title); 
+            };
+            searchSuggestionsContainer.appendChild(suggestionItem);
+        });
+    }
+
+    function displaySearchResults(results, searchTypeApi) {
+        // ... (implementazione come prima) ...
+        if (!searchResultsContainer) return;
+        searchResultsContainer.innerHTML = ''; 
+        if (results.length === 0) {
+            searchResultsContainer.innerHTML = `<p class="text-gray-400 col-span-full text-center text-lg">Nessun risultat${searchTypeApi === 'movie' ? 'o' : 'a'} trovat${searchTypeApi === 'movie' ? 'o' : 'a'}.</p>`;
+            return;
+        }
+        results.forEach(item => {
+            const title = item.title || item.name;
+            const releaseDate = item.release_date || item.first_air_date;
+            if (!title || !releaseDate) return; 
+
+            const mediaCard = document.createElement('div');
+            // ... (come prima) ...
+            mediaCard.classList.add('media-card');
+            const posterUrl = item.poster_path ? `${TMDB_IMAGE_BASE_URL}${item.poster_path}` : `https://placehold.co/160x240/1f1f1f/e5e5e5?text=No+Poster`;
+            const year = new Date(releaseDate).getFullYear();
+            mediaCard.innerHTML = `
+                <img src="${posterUrl}" alt="Locandina di ${title}" class="media-poster" onerror="this.src='https://placehold.co/160x240/1f1f1f/e5e5e5?text=Error'; this.onerror=null;">
+                <h3 class="font-semibold text-base mt-2 truncate w-full px-1" title="${title}">${title}</h3>
+                <p class="text-sm text-gray-400">${year}</p>
+                <button class="action-button text-xs mt-3 w-full">Aggiungi</button>
+            `;
+            const addButton = mediaCard.querySelector('.action-button');
+            addButton.onclick = () => addMediaToWatched(item, searchTypeApi); // searchTypeApi è 'movie' o 'tv'
+            searchResultsContainer.appendChild(mediaCard);
+        });
+    }
+
+    async function addMediaToWatched(item, searchTypeApi) { // searchTypeApi è 'movie' o 'tv'
+        const mediaTypeForServer = searchTypeApi; // 'movie' o 'tvshow' per il server, coerente con TMDB
+        const mediaTypeKeyForState = searchTypeApi === 'movie' ? 'movies' : 'tvshows'; // 'movies' o 'tvshows' per la UI
+
+        const mediaData = {
+            tmdb_id: item.id,
+            media_type: mediaTypeForServer, // 'movie' or 'tvshow'
+            title: item.title || item.name,
+            poster_path: item.poster_path,
+            release_date: item.release_date || item.first_air_date
         };
-        
-        overlay.appendChild(mediaTitleOverlay);
-        overlay.appendChild(removeBtn);
-        mediaElement.appendChild(img);
-        mediaElement.appendChild(overlay);
-        container.appendChild(mediaElement);
-    });
-}
 
-
-async function removeMediaFromWatched(mediaTmdbId, type) { // type è 'movies' o 'tvshows'
-    try {
-        const mediaTypeParam = type; // Già 'movies' o 'tvshows'
-        await apiCall(`/media/${mediaTmdbId}/${mediaTypeParam}`, 'DELETE');
-        renderWatchedMedia(type); // Ri-renderizza la lista aggiornata
-        showAlert(`${type === 'movies' ? 'Film' : 'Serie TV'} rimoss${type === 'movies' ? 'o' : 'a'} dalla lista!`, 2000);
-    } catch (error) {
-        // showAlert è già chiamato da apiCall
-    }
-}
-
-async function addMediaToWatched(item, searchTypeApi) { // searchTypeApi è 'movie' o 'tv' da TMDB
-    const mediaTypeKey = searchTypeApi === 'movie' ? 'movies' : 'tvshows'; // 'movies' o 'tvshows' per il nostro stato
-    const mediaTypeForServer = searchTypeApi; // 'movie' o 'tv' per il server DB
-
-    // Non c'è più bisogno di controllare se è già nella lista client-side, il server lo farà
-    // con il vincolo UNIQUE (user_id, tmdb_id, media_type)
-
-    const mediaData = {
-        tmdb_id: item.id,
-        media_type: mediaTypeForServer,
-        title: item.title || item.name,
-        poster_path: item.poster_path,
-        release_date: item.release_date || item.first_air_date
-    };
-
-    try {
-        await apiCall('/media', 'POST', mediaData);
-        renderWatchedMedia(mediaTypeKey);
-        showAlert(`${item.title || item.name} aggiunto alla lista ${mediaTypeKey === 'movies' ? 'Film' : 'Serie TV'}!`, 2000);
-        searchResultsContainer.innerHTML = '';
-        mediaSearchInput.value = '';
-        searchSuggestionsContainer.classList.add('hidden');
-    } catch (error) {
-        // Se l'errore è 409 (Conflict), significa che è già presente
-        if (error.message && error.message.toLowerCase().includes("già presente")) {
-             showAlert(`${item.title || item.name} è già nella tua lista!`, 2000, true);
+        try {
+            await apiCall('/media', 'POST', mediaData);
+            await renderWatchedMedia(mediaTypeKeyForState);
+            showAlert(`${item.title || item.name} aggiunto!`, 2000);
+            if(searchResultsContainer) searchResultsContainer.innerHTML = '';
+            if(mediaSearchInput) mediaSearchInput.value = '';
+            if(searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+        } catch (error) {
+            if (error.message && error.message.toLowerCase().includes("già presente")) {
+                 showAlert(`${item.title || item.name} è già nella tua lista!`, 2000, true);
+            }
+            /* apiCall gestisce altri errori */
         }
-        // Altri errori sono gestiti da apiCall
     }
-}
 
-// --- INIZIALIZZAZIONE ---
-window.onload = async () => { // Ora è async
-    // currentUser e authToken sono già inizializzati leggendo da localStorage
-    await initializeAppUI(); // initializeAppUI ora fa fetchCurrentUser
-    if (TMDB_API_KEY === 'LA_TUA_CHIAVE_API_TMDB') {
-         showAlert("Benvenuto su WatchNet! Configura la tua chiave API TMDB per la ricerca.", 7000, true);
+    // --- EVENT LISTENERS ---
+    // Auth
+    if(showRegisterButton) showRegisterButton.addEventListener('click', showRegisterForm);
+    if(showLoginButton) showLoginButton.addEventListener('click', showLoginForm);
+    if(registerButton) registerButton.addEventListener('click', handleRegistration);
+    if(loginButton) loginButton.addEventListener('click', handleLogin);
+
+    // Profile
+    if(closeProfileButton) closeProfileButton.addEventListener('click', () => profileOverlay && profileOverlay.classList.add('hidden'));
+    if(changePasswordButton) changePasswordButton.addEventListener('click', handleChangePassword);
+    if(deleteProfileButton) deleteProfileButton.addEventListener('click', handleDeleteProfile);
+
+    // Search
+    if(searchButton) {
+        searchButton.addEventListener('click', () => {
+            if(searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+            if(mediaSearchInput) searchMedia(mediaSearchInput.value);
+        });
     }
-};
+    if(mediaSearchInput) {
+        mediaSearchInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                if(searchSuggestionsContainer) searchSuggestionsContainer.classList.add('hidden');
+                searchMedia(mediaSearchInput.value);
+            } else {
+                clearTimeout(searchDebounceTimer);
+                const query = mediaSearchInput.value;
+                if (query.length > 2) {
+                    searchDebounceTimer = setTimeout(() => {
+                        searchMedia(query, true);
+                    }, 350);
+                } else {
+                    if(searchSuggestionsContainer) {
+                        searchSuggestionsContainer.innerHTML = '';
+                        searchSuggestionsContainer.classList.add('hidden');
+                    }
+                }
+            }
+        });
+    }
+    
+    document.addEventListener('click', function(event) {
+        if (mediaSearchInput && searchSuggestionsContainer &&
+            !mediaSearchInput.contains(event.target) &&
+            !searchSuggestionsContainer.contains(event.target)) {
+            searchSuggestionsContainer.classList.add('hidden');
+        }
+    });
 
-// Le funzioni di ricerca TMDB (searchMedia, displaySearchSuggestions, displaySearchResults)
-// rimangono in gran parte invariate perché interagiscono con l'API TMDB, non con il nostro backend.
-// Tuttavia, `addMediaToWatched` chiamata da `displaySearchResults` è stata modificata.
+    // --- INIZIALIZZAZIONE ---
+    window.onload = async () => {
+        console.log("window.onload - Inizio esecuzione script.");
+        // authToken viene già letto all'inizio dello script
+        await initializeAppUI();
+        console.log("window.onload - Fine initializeAppUI.");
+
+        if (TMDB_API_KEY === 'LA_TUA_CHIAVE_API_TMDB' || !TMDB_API_KEY) {
+             showAlert("Benvenuto! Configura la tua chiave API TMDB per la ricerca.", 7000, true);
+        }
+    };
 
     </script>
 </body>
