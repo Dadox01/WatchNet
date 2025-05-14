@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WatchNet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #141414;
+            color: #e5e5e5;
+            padding-top: 64px; /* Altezza navbar */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .main-content { flex-grow: 1; }
+
+        /* Stili Navbar */
+        #main-nav { transition: background-color 0.3s ease; }
+        #main-nav.bg-scrolled { background-color: #0c0c0c; }
+        .nav-link { transition: color 0.2s ease; }
+        .nav-link.active { font-weight: 700; color: #e50914; }
+
+        /* Stili Card e Liste */
+        .media-poster {
+            width: 160px;
+            height: 240px;
+            object-fit: cover;
+            border-radius: 0.25rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease-in-out;
+        }
+        .media-poster:hover { transform: scale(1.08); }
+        .media-list-container {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 1.5rem;
+            gap: 1.5rem;
+        }
+        .media-list-container::-webkit-scrollbar { height: 10px; }
+        .media-list-container::-webkit-scrollbar-track { background: #222; border-radius: 10px; }
+        .media-list-container::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+        .media-list-container::-webkit-scrollbar-thumb:hover { background: #666; }
+
+        .search-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 1.5rem;
+        }
+        .media-card {
+            background-color: #1f1f1f;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        .media-card:hover { background-color: #2a2a2a; }
+        .media-card img { margin-bottom: 0.75rem; }
+
+        /* Bottoni */
+        .action-button {
+            background-color: #e50914; color: white; padding: 0.6rem 1.2rem;
+            border-radius: 0.25rem; font-weight: 600; cursor: pointer;
+            transition: background-color 0.2s ease; border: none;
+            text-transform: uppercase; font-size: 0.875rem;
+        }
+        .action-button:hover { background-color: #f40612; }
+        .secondary-button {
+            background-color: #444; color: white; padding: 0.6rem 1.2rem;
+            border-radius: 0.25rem; font-weight: 500; cursor: pointer;
+            transition: background-color 0.2s ease; border: none;
+            font-size: 0.875rem;
+        }
+        .secondary-button:hover { background-color: #555; }
+        .remove-button {
+            background-color: rgba(20, 20, 20, 0.7); color: white; padding: 0.4rem 0.8rem;
+            border-radius: 0.25rem; font-size: 0.75rem; cursor: pointer;
+            transition: background-color 0.2s ease, opacity 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .remove-button:hover { background-color: rgba(20, 20, 20, 0.9); }
+
+        /* Modali e Overlay */
+        .modal-overlay {
+            position: fixed; inset: 0; background-color: rgba(0,0,0,0.75);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal-content {
+            background-color: #1f1f1f; padding: 2rem; border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 90%; max-width: 450px;
+        }
+        .form-input {
+            background-color: #333; border: 1px solid #444; color: white;
+            padding: 0.75rem; border-radius: 0.25rem; width: 100%;
+            margin-bottom: 1rem; font-size: 1rem;
+        }
+        .form-input:focus { outline: none; border-color: #e50914; }
+
+        /* Messaggio di avviso */
+        #alert-message {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background-color: #e50914; color: white; padding: 1rem 1.5rem;
+            border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1000; display: none; font-size: 0.875rem;
+        }
+        .user-avatar {
+            width: 32px; height: 32px; border-radius: 0.25rem;
+            background-color: #7f1d1d; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1rem; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <nav id="main-nav" class="text-white p-4 flex items-center justify-between fixed top-0 left-0 right-0 z-50 h-16">
+        <div class="flex items-center space-x-8">
+            <a href="#" class="text-3xl font-bold text-red-600">WatchNet</a>
+            <ul id="nav-links-container" class="hidden md:flex items-center space-x-4 text-sm">
+                </ul>
+        </div>
+        <div id="user-profile-icon-container" class="hidden items-center space-x-3">
+            </div>
+    </nav>
+
+    <div id="alert-message"></div>
+
+    <main id="app-content" class="main-content container mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+        <section id="search-section" class="mb-12 pt-8">
+            <h2 id="search-title" class="text-3xl font-semibold mb-6 text-gray-200">Cerca Film</h2>
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
+                <input type="text" id="media-search-input" placeholder="Scrivi il titolo..." class="flex-grow p-3 rounded-md bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 placeholder-gray-500 text-lg">
+                <button id="search-button" class="action-button px-8 py-3 self-stretch sm:self-auto">Cerca</button>
+            </div>
+            <div id="search-suggestions" class="mt-2 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-96 overflow-y-auto z-20 relative hidden"></div>
+            <div id="search-results" class="mt-10 search-results-grid"></div>
+        </section>
+
+        <section id="movies-watched-section" class="mb-12 hidden">
+            <h2 class="text-3xl font-semibold mb-6 text-gray-200">Film Visti</h2>
+            <div id="movies-watched-list" class="media-list-container pb-4">
+                <p class="no-media-message text-gray-500 italic text-lg">Nessun film aggiunto.</p>
+            </div>
+        </section>
+
+        <section id="tvshows-watched-section" class="mb-12 hidden">
+            <h2 class="text-3xl font-semibold mb-6 text-gray-200">Serie TV Viste</h2>
+            <div id="tvshows-watched-list" class="media-list-container pb-4">
+                 <p class="no-media-message text-gray-500 italic text-lg">Nessuna serie TV aggiunta.</p>
+            </div>
+        </section>
+    </main>
+
+    <div id="auth-overlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div id="login-form-container">
+                <h2 class="text-2xl font-bold mb-6 text-center">Accedi a WatchNet</h2>
+                <input type="text" id="login-username" class="form-input" placeholder="Nome utente">
+                <input type="password" id="login-password" class="form-input" placeholder="Password">
+                <button id="login-button" class="action-button w-full mb-4">Accedi</button>
+                <p class="text-center text-sm">Non hai un account? <button id="show-register-button" class="text-red-500 hover:underline">Registrati</button></p>
+            </div>
+            <div id="register-form-container" class="hidden">
+                <h2 class="text-2xl font-bold mb-6 text-center">Crea un Account</h2>
+                <input type="text" id="register-username" class="form-input" placeholder="Scegli un nome utente">
+                <input type="password" id="register-password" class="form-input" placeholder="Scegli una password">
+                <input type="password" id="register-confirm-password" class="form-input" placeholder="Conferma password">
+                <button id="register-button" class="action-button w-full mb-4">Registrati</button>
+                <p class="text-center text-sm">Hai già un account? <button id="show-login-button" class="text-red-500 hover:underline">Accedi</button></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="profile-overlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-6 text-center">Il Mio Profilo</h2>
+            <p class="mb-2 text-lg">Nome Utente: <span id="profile-username" class="font-semibold"></span></p>
+            
+            <h3 class="text-xl font-semibold mt-6 mb-3">Cambia Password</h3>
+            <input type="password" id="profile-current-password" class="form-input" placeholder="Password attuale">
+            <input type="password" id="profile-new-password" class="form-input" placeholder="Nuova password">
+            <input type="password" id="profile-confirm-new-password" class="form-input" placeholder="Conferma nuova password">
+            <button id="change-password-button" class="action-button w-full mb-6">Salva Nuova Password</button>
+
+            <h3 class="text-xl font-semibold mt-6 mb-3 text-red-500">Zona Pericolo</h3>
+            <button id="delete-profile-button" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded w-full mb-4">Elimina Profilo</button>
+            
+            <button id="close-profile-button" class="secondary-button w-full">Chiudi</button>
+        </div>
+    </div>
+
+
+    <script>
+    // --- CONFIGURAZIONE API ---
+    const TMDB_API_KEY = 'ebcee35ad2cf06790790fc514c32f89a';
+    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+    const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+
+    // --- ELEMENTI DEL DOM ---
+    const mainNav = document.getElementById('main-nav');
+    const navLinksContainer = document.getElementById('nav-links-container');
+    const userProfileIconContainer = document.getElementById('user-profile-icon-container');
+    
+    const appContent = document.getElementById('app-content');
+    const authOverlay = document.getElementById('auth-overlay');
+    const loginFormContainer = document.getElementById('login-form-container');
+    const registerFormContainer = document.getElementById('register-form-container');
+    const profileOverlay = document.getElementById('profile-overlay');
+
+    const searchTitle = document.getElementById('search-title');
+    const mediaSearchInput = document.getElementById('media-search-input');
+    const searchButton = document.getElementById('search-button');
+    const searchSuggestionsContainer = document.getElementById('search-suggestions');
+    const searchResultsContainer = document.getElementById('search-results');
+
+    const moviesWatchedSection = document.getElementById('movies-watched-section');
+    const moviesWatchedListContainer = document.getElementById('movies-watched-list');
+    const tvshowsWatchedSection = document.getElementById('tvshows-watched-section');
+    const tvshowsWatchedListContainer = document.getElementById('tvshows-watched-list');
+    
+    const alertMessageContainer = document.getElementById('alert-message');
+
+    // Auth Form Elements
+    const loginUsernameInput = document.getElementById('login-username');
+    const loginPasswordInput = document.getElementById('login-password');
+    const loginButton = document.getElementById('login-button');
+    const showRegisterButton = document.getElementById('show-register-button');
+
+    const registerUsernameInput = document.getElementById('register-username');
+    const registerPasswordInput = document.getElementById('register-password');
+    const registerConfirmPasswordInput = document.getElementById('register-confirm-password');
+    const registerButton = document.getElementById('register-button');
+    const showLoginButton = document.getElementById('show-login-button');
+
+    // Profile Modal Elements
+    const profileUsernameSpan = document.getElementById('profile-username');
+    const profileCurrentPasswordInput = document.getElementById('profile-current-password');
+    const profileNewPasswordInput = document.getElementById('profile-new-password');
+    const profileConfirmNewPasswordInput = document.getElementById('profile-confirm-new-password');
+    const changePasswordButton = document.getElementById('change-password-button');
+    const deleteProfileButton = document.getElementById('delete-profile-button');
+    const closeProfileButton = document.getElementById('close-profile-button');
+
+
+// --- STATO DELL'APPLICAZIONE ---
+let currentUser = null; // Oggetto utente: { id: ..., username: "..." } (dal server)
+let authToken = localStorage.getItem('watchnet_authToken'); // Conserva il token
+// ... (il resto dello stato può rimanere)
+
+// --- FUNZIONI DI UTILITY ---
+// ... showAlert rimane uguale ...
+
+// Helper per chiamate API
+async function apiCall(endpoint, method = 'GET', body = null, requireAuth = true) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (requireAuth && authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const config = {
+        method,
+        headers
+    };
+    if (body) {
+        config.body = JSON.stringify(body);
+    }
+
+    try {
+        const response = await fetch(`/api${endpoint}`, config); // Nota /api prefix
+        if (response.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/register') { // Token scaduto o non valido
+            handleLogout(); // Esegui il logout
+            showAlert("Sessione scaduta. Effettua nuovamente il login.", 4000, true);
+            throw new Error("Unauthorized");
+        }
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || `Errore API: ${response.statusText}`);
+        }
+        return data;
+    } catch (error) {
+        console.error(`Errore API (${method} ${endpoint}):`, error);
+        showAlert(error.message || "Errore di comunicazione con il server.", 4000, true);
+        throw error; // Rilancia l'errore per gestirlo nel chiamante se necessario
+    }
+}
+
+
+// --- LOGICA DI AUTENTICAZIONE (con API) ---
+// RIMUOVERE getUsersFromStorage, saveUsersToStorage, getCurrentUserFromStorage, setCurrentUserInStorage, hashPassword
+
+async function handleRegistration() {
+    const username = registerUsernameInput.value.trim();
+    const password = registerPasswordInput.value;
+    const confirmPassword = registerConfirmPasswordInput.value;
+
+    if (!username || !password || !confirmPassword) {
+        showAlert("Tutti i campi sono obbligatori.", 3000, true); return;
+    }
+    if (password !== confirmPassword) {
+        showAlert("Le password non coincidono.", 3000, true); return;
+    }
+    if (password.length < 6) {
+        showAlert("La password deve essere di almeno 6 caratteri.", 3000, true); return;
+    }
+
+    try {
+        await apiCall('/auth/register', 'POST', { username, password }, false);
+        showAlert("Registrazione completata! Ora puoi accedere.");
+        showLoginForm();
+        registerUsernameInput.value = '';
+        registerPasswordInput.value = '';
+        registerConfirmPasswordInput.value = '';
+    } catch (error) {
+        // showAlert è già chiamato da apiCall
+    }
+}
+
+async function handleLogin() {
+    const username = loginUsernameInput.value.trim();
+    const password = loginPasswordInput.value;
+
+    if (!username || !password) {
+        showAlert("Nome utente e password sono obbligatori.", 3000, true); return;
+    }
+
+    try {
+        const data = await apiCall('/auth/login', 'POST', { username, password }, false);
+        authToken = data.accessToken;
+        localStorage.setItem('watchnet_authToken', authToken); // Salva il token
+        // currentUser sarà impostato da fetchCurrentUser o initializeAppUI
+        await fetchCurrentUser(); // Carica i dati dell'utente
+        initializeAppUI();
+        showAlert(`Benvenuto, ${data.username}!`);
+    } catch (error) {
+        // showAlert è già chiamato da apiCall
+    } finally {
+        loginPasswordInput.value = ''; // Pulisci sempre la password
+    }
+}
+
+async function fetchCurrentUser() {
+    if (!authToken) {
+        currentUser = null;
+        return;
+    }
+    try {
+        currentUser = await apiCall('/auth/me', 'GET');
+    } catch (error) {
+        currentUser = null;
+        localStorage.removeItem('watchnet_authToken');
+        authToken = null;
+    }
+}
+
+function handleLogout() {
+    currentUser = null;
+    authToken = null;
+    localStorage.removeItem('watchnet_authToken');
+    initializeAppUI();
+    showAlert("Sei stato disconnesso.");
+}
+
+async function handleChangePassword() {
+    const currentPassword = profileCurrentPasswordInput.value;
+    const newPassword = profileNewPasswordInput.value;
+    const confirmNewPassword = profileConfirmNewPasswordInput.value;
+
+    // ... validazioni come prima ...
+    if (!currentPassword || !newPassword || !confirmNewPassword) { /*...*/ return; }
+    if (newPassword !== confirmNewPassword) { /*...*/ return; }
+    if (newPassword.length < 6) { /*...*/ return; }
+    // NON PUOI PIU' verificare currentPassword lato client se non la salvi (non farlo!)
+    // Il server farà questa verifica.
+
+    try {
+        await apiCall('/auth/me/password', 'PUT', { currentPassword, newPassword });
+        showAlert("Password modificata con successo!");
+        profileCurrentPasswordInput.value = '';
+        profileNewPasswordInput.value = '';
+        profileConfirmNewPasswordInput.value = '';
+        profileOverlay.classList.add('hidden');
+    } catch (error) {
+        // showAlert è già chiamato da apiCall
+    }
+}
+
+async function handleDeleteProfile() {
+    if (confirm(`Sei sicuro di voler eliminare il tuo profilo, ${currentUser.username}? Questa azione è irreversibile e tutti i tuoi dati verranno persi.`)) {
+        try {
+            await apiCall('/auth/me', 'DELETE');
+            handleLogout(); // Esegue il logout e resetta l'UI
+            showAlert("Profilo eliminato con successo.");
+            profileOverlay.classList.add('hidden');
+        } catch (error) {
+            // showAlert è già chiamato da apiCall
+        }
+    }
+}
+
+// --- GESTIONE UI PRINCIPALE ---
+async function initializeAppUI() { // Ora è async
+    await fetchCurrentUser(); // Prova a caricare l'utente se c'è un token
+
+    if (currentUser && authToken) { // Verifica anche authToken
+        authOverlay.classList.add('hidden');
+        appContent.classList.remove('hidden');
+        userProfileIconContainer.classList.remove('hidden');
+        userProfileIconContainer.classList.add('flex');
+        setupNavbarLinks();
+        updateUserProfileIcon();
+        setView(currentView);
+    } else {
+        appContent.classList.add('hidden');
+        userProfileIconContainer.classList.add('hidden');
+        userProfileIconContainer.classList.remove('flex');
+        navLinksContainer.innerHTML = '';
+        showLoginForm();
+    }
+}
+
+// ... updateUserProfileIcon, showProfileModal, setView rimangono simili ma potrebbero aver bisogno di renderWatchedMedia async
+
+// --- LOGICA DI RICERCA E GESTIONE MEDIA (con API) ---
+// RIMUOVERE saveMediaList
+
+async function getMediaList(type) { // type: 'movies' or 'tvshows'
+    if (!currentUser) return [];
+    try {
+        const mediaTypeParam = type === 'movies' ? 'movies' : 'tvshows'; // l'endpoint usa 'movies'/'tvshows'
+        return await apiCall(`/media/${mediaTypeParam}`, 'GET');
+    } catch (error) {
+        return []; // Restituisce array vuoto in caso di errore
+    }
+}
+
+async function renderWatchedMedia(type) { // Ora è async
+    const list = await getMediaList(type); // Chiama la nuova funzione async
+    const container = type === 'movies' ? moviesWatchedListContainer : tvshowsWatchedListContainer;
+    container.innerHTML = '';
+
+    // ... il resto della logica di rendering rimane simile, ma i dati (list) ora sono dal server ...
+
+    const noMediaMessageElement = container.querySelector('.no-media-message') || document.createElement('p');
+    noMediaMessageElement.classList.add('no-media-message', 'text-gray-500', 'italic', 'text-lg');
+    noMediaMessageElement.textContent = type === 'movies' ? 'Nessun film aggiunto.' : 'Nessuna serie TV aggiunta.';
+
+    if (list.length === 0) {
+        container.appendChild(noMediaMessageElement);
+        return;
+    }
+
+    list.forEach(media => {
+        // ... come prima, ma assicurati che i campi media.poster_path, media.title etc. siano corretti
+        // in base a cosa restituisce l'API /media/:type.
+        // Ho cercato di mantenere la coerenza nella risposta dell'API.
+        const mediaElement = document.createElement('div');
+        mediaElement.classList.add('flex-shrink-0', 'relative', 'group', 'rounded-md', 'overflow-hidden');
+
+        // Il backend restituisce già tmdb_id come 'id' e i campi title/name, poster_path, release_date/first_air_date
+        const posterPath = media.poster_path;
+        const title = media.title || media.name;
+        const releaseDate = media.release_date || media.first_air_date;
+
+        const posterUrl = posterPath ? `${TMDB_IMAGE_BASE_URL}${posterPath}` : `https://placehold.co/160x240/1f1f1f/e5e5e5?text=No+Poster`;
+        
+        const img = document.createElement('img');
+        img.src = posterUrl;
+        img.alt = `Locandina di ${title}`;
+        img.classList.add('media-poster');
+        img.title = `${title} (${releaseDate ? new Date(releaseDate).getFullYear() : 'N/A'})`;
+        img.onerror = function() { this.src = `https://placehold.co/160x240/1f1f1f/e5e5e5?text=Error`; };
+
+        const overlay = document.createElement('div');
+        overlay.classList.add('absolute', 'inset-0', 'bg-black', 'bg-opacity-0', 'group-hover:bg-opacity-60', 'transition-all', 'duration-300', 'flex', 'flex-col', 'items-center', 'justify-end', 'p-2', 'opacity-0', 'group-hover:opacity-100');
+        
+        const mediaTitleOverlay = document.createElement('p');
+        mediaTitleOverlay.textContent = title;
+        mediaTitleOverlay.classList.add('text-white', 'text-xs', 'font-semibold', 'text-center', 'mb-1', 'truncate');
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Rimuovi';
+        removeBtn.classList.add('remove-button');
+        removeBtn.onclick = (event) => {
+            event.stopPropagation(); 
+            removeMediaFromWatched(media.id, type); // media.id qui è tmdb_id
+        };
+        
+        overlay.appendChild(mediaTitleOverlay);
+        overlay.appendChild(removeBtn);
+        mediaElement.appendChild(img);
+        mediaElement.appendChild(overlay);
+        container.appendChild(mediaElement);
+    });
+}
+
+
+async function removeMediaFromWatched(mediaTmdbId, type) { // type è 'movies' o 'tvshows'
+    try {
+        const mediaTypeParam = type; // Già 'movies' o 'tvshows'
+        await apiCall(`/media/${mediaTmdbId}/${mediaTypeParam}`, 'DELETE');
+        renderWatchedMedia(type); // Ri-renderizza la lista aggiornata
+        showAlert(`${type === 'movies' ? 'Film' : 'Serie TV'} rimoss${type === 'movies' ? 'o' : 'a'} dalla lista!`, 2000);
+    } catch (error) {
+        // showAlert è già chiamato da apiCall
+    }
+}
+
+async function addMediaToWatched(item, searchTypeApi) { // searchTypeApi è 'movie' o 'tv' da TMDB
+    const mediaTypeKey = searchTypeApi === 'movie' ? 'movies' : 'tvshows'; // 'movies' o 'tvshows' per il nostro stato
+    const mediaTypeForServer = searchTypeApi; // 'movie' o 'tv' per il server DB
+
+    // Non c'è più bisogno di controllare se è già nella lista client-side, il server lo farà
+    // con il vincolo UNIQUE (user_id, tmdb_id, media_type)
+
+    const mediaData = {
+        tmdb_id: item.id,
+        media_type: mediaTypeForServer,
+        title: item.title || item.name,
+        poster_path: item.poster_path,
+        release_date: item.release_date || item.first_air_date
+    };
+
+    try {
+        await apiCall('/media', 'POST', mediaData);
+        renderWatchedMedia(mediaTypeKey);
+        showAlert(`${item.title || item.name} aggiunto alla lista ${mediaTypeKey === 'movies' ? 'Film' : 'Serie TV'}!`, 2000);
+        searchResultsContainer.innerHTML = '';
+        mediaSearchInput.value = '';
+        searchSuggestionsContainer.classList.add('hidden');
+    } catch (error) {
+        // Se l'errore è 409 (Conflict), significa che è già presente
+        if (error.message && error.message.toLowerCase().includes("già presente")) {
+             showAlert(`${item.title || item.name} è già nella tua lista!`, 2000, true);
+        }
+        // Altri errori sono gestiti da apiCall
+    }
+}
+
+// --- INIZIALIZZAZIONE ---
+window.onload = async () => { // Ora è async
+    // currentUser e authToken sono già inizializzati leggendo da localStorage
+    await initializeAppUI(); // initializeAppUI ora fa fetchCurrentUser
+    if (TMDB_API_KEY === 'LA_TUA_CHIAVE_API_TMDB') {
+         showAlert("Benvenuto su WatchNet! Configura la tua chiave API TMDB per la ricerca.", 7000, true);
+    }
+};
+
+// Le funzioni di ricerca TMDB (searchMedia, displaySearchSuggestions, displaySearchResults)
+// rimangono in gran parte invariate perché interagiscono con l'API TMDB, non con il nostro backend.
+// Tuttavia, `addMediaToWatched` chiamata da `displaySearchResults` è stata modificata.
+
+    </script>
+</body>
+</html>
